@@ -53,10 +53,10 @@ function getPagesCount(rowsCount) {
   return num;
 }
 
-function apiCall(method, path, params, cb) {
+function apiCall(method, path, params, cb, multipart) {
   var timeout = 300000; // 5 mins is enough
 
-  $.ajax({
+  var config = {
     timeout: timeout,
     url: "api" + path,
     method: method,
@@ -75,7 +75,13 @@ function apiCall(method, path, params, cb) {
 
       cb(jQuery.parseJSON(xhr.responseText));
     }
-  });
+  };
+  if (multipart) {
+    config.contentType = false;
+    config.processData = false;
+  }
+
+  $.ajax(config);
 }
 
 function getObjects(cb)                     { apiCall("get", "/objects", {}, cb); }
@@ -336,6 +342,7 @@ function showQueryHistory() {
 
     setCurrentTab("table_history");
     $("#input").hide();
+    $("#import").hide();
     $("#body").prop("class", "full");
     $("#results").addClass("no-crop");
   });
@@ -354,6 +361,7 @@ function showTableIndexes() {
     buildTable(data);
 
     $("#input").hide();
+    $("#import").hide();
     $("#body").prop("class", "full");
     $("#results").addClass("no-crop");
   });
@@ -372,6 +380,7 @@ function showTableConstraints() {
     buildTable(data);
 
     $("#input").hide();
+    $("#import").hide();
     $("#body").prop("class", "full");
     $("#results").addClass("no-crop");
   });
@@ -461,6 +470,7 @@ function showTableContent(sortColumn, sortOrder) {
 
   getTableRows(name, opts, function(data) {
     $("#input").hide();
+    $("#import").hide();
     $("#body").prop("class", "with-pagination");
 
     buildTable(data, sortColumn, sortOrder);
@@ -495,6 +505,7 @@ function showTableStructure() {
   setCurrentTab("table_structure");
 
   $("#input").hide();
+  $("#import").hide();
   $("#body").prop("class", "full");
 
   getTableStructure(name, { type: getCurrentObject().type }, function(data) {
@@ -512,6 +523,7 @@ function showQueryPanel() {
   editor.focus();
 
   $("#input").show();
+  $("#import").hide();
   $("#body").prop("class", "")
 }
 
@@ -531,8 +543,19 @@ function showConnectionPanel() {
     });
 
     $("#input").hide();
+    $("#import").hide();
     $("#body").addClass("full");
   });
+}
+
+function showImportPanel() {
+  setCurrentTab("table_import");
+  resetTable();
+  editor.focus();
+
+  $("#input").hide();
+  $("#import").show();
+  $("#body").prop("class", "")
 }
 
 function showActivityPanel() {
@@ -549,6 +572,7 @@ function showActivityPanel() {
   apiCall("get", "/activity", {}, function(data) {
     buildTable(data, null, null, options);
     $("#input").hide();
+    $("#import").hide();
     $("#body").addClass("full");
   });
 }
@@ -585,6 +609,16 @@ function runQuery() {
       loadSchemas();
     }
   });
+}
+
+function importFile() {
+  setCurrentTab("table_import");
+  var form = new FormData();
+
+  form.append("table", $("#table_name")[0].value)
+  form.append("file", $("#table_file")[0].files[0])
+  
+  apiCall("post", "/import", form, function() {}, true);
 }
 
 function runExplain() {
@@ -638,6 +672,7 @@ function showUniqueColumnsValues(table, column, showCounts) {
 
   executeQuery(query, function(data) {
     $("#input").hide();
+    $("#import").hide();
     $("#body").prop("class", "full");
     $("#results").data("mode", "query");
     buildTable(data);
@@ -887,6 +922,7 @@ $(document).ready(function() {
   $("#table_query").on("click",       function() { showQueryPanel();       });
   $("#table_connection").on("click",  function() { showConnectionPanel();  });
   $("#table_activity").on("click",    function() { showActivityPanel();    });
+  $("#table_import").on("click",      function() { showImportPanel();      });
 
   $("#run").on("click", function() {
     runQuery();
@@ -959,6 +995,12 @@ $(document).ready(function() {
     var value  = $(this).data("value");
 
     performRowAction(action, value);
+  })
+
+  $("#upload").on("click", function(e) {
+    e.preventDefault();
+
+    importFile();
   })
 
   $("#results").on("click", "th", function(e) {
